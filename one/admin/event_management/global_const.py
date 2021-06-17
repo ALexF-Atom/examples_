@@ -1,0 +1,4 @@
+RELATION_ACTION_ON_NAME = (...)
+
+
+RELATED_NAME = (...)

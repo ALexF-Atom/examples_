@@ -1,0 +1,66 @@
+---
+version: '3'
+services:
+  db:
+    container_name: db
+    image: postgres:13.1
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - "pg_data:/var/lib/postgresql/data"
+    networks:
+      - practiqa
+
+  web:
+    restart: always
+    build: .
+    # command: bash -c "alembic upgrade head && python main.py"
+    command: python main.py
+    depends_on:
+      - db
+    env_file:
+      - .env
+    networks:
+      - practiqa
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fca-be.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.fca-be.entrypoints=websecure"
+      - "traefik.http.routers.fca-be.tls.certresolver=myresolver"
+
+  traefik:
+    image: "traefik:v2.4"
+    container_name: "traefik"
+    command:
+      - "--entrypoints.web.address=:80"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=neb0t@rocketech.it"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - "letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - practiqa
+
+volumes:
+  pg_data:
+    external:
+      name: pg_data
+  letsencrypt:
+    external:
+      name: letsencrypt
+
+networks:
+  practiqa:
+    external: true
